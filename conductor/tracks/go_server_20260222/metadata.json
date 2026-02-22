@@ -1,0 +1,8 @@
+{
+"track_id": "go_server_20260222",
+"type": "feature",
+"status": "new",
+"created_at": "2026-02-22T00:00:00Z",
+"updated_at": "2026-02-22T00:00:00Z",
+"description": "Complete the Go-based OpenAI-compatible inference server implementation"
+}
