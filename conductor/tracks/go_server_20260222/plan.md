@@ -5,7 +5,7 @@ This plan details the steps to implement a high-performance Go-based inference s
 ## Phase 1: Architecture & Model Loading
 Initialize the Go project and set up persistent ONNX sessions with CoreML acceleration.
 
-- [ ] Task: Initialize Go module and setup ONNX session management infrastructure
+- [x] Task: Initialize Go module and setup ONNX session management infrastructure (ce873b2)
     - [ ] Write Tests: Define tests for session initialization and CoreML provider availability
     - [ ] Implement Feature: Create the base `InferenceEngine` struct and session loading logic
 - [ ] Task: Implement Vision Tower and Pointer Head session loading
