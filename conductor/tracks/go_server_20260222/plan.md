@@ -35,7 +35,7 @@ Orchestrate the full inference flow from vision to action.
     - [x] Implement Feature: Port coordinate extraction logic from Python's `get_prediction_region_point`
 - [x] Task: Conductor - User Manual Verification 'Inference Pipeline' (Protocol in workflow.md) (5b627aa)
 
-## Phase 4: OpenAI Compatibility & Finalization
+## Phase 4: OpenAI Compatibility & Finalization [checkpoint: e6e7eb3]
 Finalize the API response format and perform end-to-end testing.
 
 - [x] Task: Implement final Chat Completion response format (5a3c776)
@@ -44,4 +44,4 @@ Finalize the API response format and perform end-to-end testing.
 - [x] Task: End-to-end integration tests and performance check (fa37a82)
     - [x] Write Tests: Execute full cycles from request to response against a local mock/test model
     - [x] Implement Feature: Add logging, metrics, and ensure concurrent safety
-- [ ] Task: Conductor - User Manual Verification 'OpenAI Compatibility' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'OpenAI Compatibility' (Protocol in workflow.md) (e6e7eb3)
