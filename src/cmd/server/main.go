@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -32,10 +33,10 @@ type Choice struct {
 
 // InferenceEngine wraps ONNX sessions and ensures they stay in GPU memory
 type InferenceEngine struct {
-	mu           sync.Mutex
-	visionSession *ort.AdvancedSession
-	llmSession    *ort.AdvancedSession
-	pointerSession *ort.AdvancedSession
+	mu             sync.Mutex
+	visionSession  *ort.DynamicAdvancedSession
+	llmSession     *ort.DynamicAdvancedSession
+	pointerSession *ort.DynamicAdvancedSession
 }
 
 func NewInferenceEngine(modelPath string) (*InferenceEngine, error) {
@@ -52,12 +53,43 @@ func NewInferenceEngine(modelPath string) (*InferenceEngine, error) {
 		log.Printf("Warning: Failed to enable CoreML, falling back to CPU: %v", err)
 	}
 
-	// Load sessions - Sessions stay active to keep models in GPU memory
-	log.Println("Loading Vision Tower into GPU...")
-	// Note: You'll need to define input/output names matching the ONNX export
-	// vision, _ := ort.NewAdvancedSession(modelPath+"/vision_tower.onnx", ...)
+	engine := &InferenceEngine{}
 
-	return &InferenceEngine{}, nil
+	// Load Vision Tower
+	log.Println("Loading Vision Tower...")
+	visionPath := modelPath + "/vision_tower.onnx"
+	if _, err := os.Stat(visionPath); err == nil {
+		engine.visionSession, err = ort.NewDynamicAdvancedSession(
+			visionPath,
+			[]string{"pixel_values", "grid_thw"},
+			[]string{"image_embeds"},
+			options,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load vision session: %v", err)
+		}
+	} else {
+		log.Printf("Warning: Vision Tower not found at %s", visionPath)
+	}
+
+	// Load Pointer Head
+	log.Println("Loading Pointer Head...")
+	pointerPath := modelPath + "/pointer_head.onnx"
+	if _, err := os.Stat(pointerPath); err == nil {
+		engine.pointerSession, err = ort.NewDynamicAdvancedSession(
+			pointerPath,
+			[]string{"visual_hidden_states", "target_hidden_states"},
+			[]string{"attn_weights", "loss"},
+			options,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load pointer session: %v", err)
+		}
+	} else {
+		log.Printf("Warning: Pointer Head not found at %s", pointerPath)
+	}
+
+	return engine, nil
 }
 
 func (e *InferenceEngine) HandleChat(w http.ResponseWriter, r *http.Request) {

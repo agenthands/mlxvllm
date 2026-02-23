@@ -24,7 +24,7 @@ func TestNewInferenceEngine(t *testing.T) {
 	}
 	defer ort.DestroyEnvironment()
 
-	engine, err := NewInferenceEngine("./onnx_models")
+	engine, err := NewInferenceEngine("../../../onnx_models")
 	if err != nil {
 		t.Fatalf("NewInferenceEngine failed: %v", err)
 	}
@@ -33,9 +33,10 @@ func TestNewInferenceEngine(t *testing.T) {
 		t.Fatal("InferenceEngine is nil")
 	}
 
-	// We expect sessions to be nil for now, but in the future they should be initialized
-	// This test will "fail" once we add the requirement for sessions to be non-nil
-	if engine.visionSession != nil {
-		t.Error("visionSession should be nil for now")
+	if engine.visionSession == nil {
+		t.Error("visionSession should be initialized")
+	}
+	if engine.pointerSession == nil {
+		t.Error("pointerSession should be initialized")
 	}
 }
