@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -151,5 +152,38 @@ func TestGetClickPoint(t *testing.T) {
 	expectedX, expectedY := 0.75, 0.25
 	if x < expectedX-0.01 || x > expectedX+0.01 || y < expectedY-0.01 || y > expectedY+0.01 {
 		t.Errorf("Expected click point (%.2f, %.2f), got (%.2f, %.2f)", expectedX, expectedY, x, y)
+	}
+}
+
+func TestHandleChatComplex(t *testing.T) {
+	engine := &InferenceEngine{}
+	
+	// Create a complex multi-modal request with base64 image
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	var buf bytes.Buffer
+	png.Encode(&buf, img)
+	base64Image := base64.StdEncoding.EncodeToString(buf.Bytes())
+
+	reqBody := fmt.Sprintf(`{
+		"model": "gui-actor",
+		"messages": [
+			{
+				"role": "user",
+				"content": [
+					{"type": "text", "text": "click here"},
+					{"type": "image_url", "image_url": {"url": "data:image/png;base64,%s"}}
+				]
+			}
+		]
+	}`, base64Image)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+
+	engine.HandleChat(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status OK, got %v", resp.Status)
 	}
 }
