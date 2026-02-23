@@ -16,12 +16,12 @@ Initialize the Go project and set up persistent ONNX sessions with CoreML accele
 ## Phase 2: Request Handling & Preprocessing
 Implement image decoding and the OpenAI-compatible request format.
 
-- [ ] Task: Define OpenAI-compatible request/response structures and handler
-    - [ ] Write Tests: Verify JSON unmarshaling and error handling for malformed requests
-    - [ ] Implement Feature: Create `ChatCompletionRequest` and `ChatCompletionResponse` structs and the initial handler
-- [ ] Task: Implement image extraction and preprocessing for the vision model
-    - [ ] Write Tests: Verify that base64/URL images are correctly decoded and resized/normalized
-    - [ ] Implement Feature: Add `PreprocessImage` utility to prepare data for the Vision Tower
+- [x] Task: Define OpenAI-compatible request/response structures and handler (c8342dc)
+    - [x] Write Tests: Verify JSON unmarshaling and error handling for malformed requests
+    - [x] Implement Feature: Create `ChatCompletionRequest` and `ChatCompletionResponse` structs and the initial handler
+- [x] Task: Implement image extraction and preprocessing for the vision model (8899207)
+    - [x] Write Tests: Verify that base64/URL images are correctly decoded and resized/normalized
+    - [x] Implement Feature: Add `PreprocessImage` utility to prepare data for the Vision Tower
 - [ ] Task: Conductor - User Manual Verification 'Request Handling & Preprocessing' (Protocol in workflow.md)
 
 ## Phase 3: Inference Pipeline
