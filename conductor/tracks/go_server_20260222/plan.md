@@ -27,12 +27,12 @@ Implement image decoding and the OpenAI-compatible request format.
 ## Phase 3: Inference Pipeline
 Orchestrate the full inference flow from vision to action.
 
-- [ ] Task: Orchestrate the sequence: Vision -> LLM -> Pointer Head
-    - [ ] Write Tests: Mock session outputs to verify the orchestration logic and data flow
-    - [ ] Implement Feature: Integrate all components into a single `RunInference` pipeline
-- [ ] Task: Extract coordinates from Pointer Head attention scores
-    - [ ] Write Tests: Verify that attention scores are correctly transformed into click points
-    - [ ] Implement Feature: Port coordinate extraction logic from Python's `get_prediction_region_point`
+- [x] Task: Orchestrate the sequence: Vision -> LLM -> Pointer Head (3b5a3ee)
+    - [x] Write Tests: Mock session outputs to verify the orchestration logic and data flow
+    - [x] Implement Feature: Integrate all components into a single `RunInference` pipeline
+- [x] Task: Extract coordinates from Pointer Head attention scores (ac366cc)
+    - [x] Write Tests: Verify that attention scores are correctly transformed into click points
+    - [x] Implement Feature: Port coordinate extraction logic from Python's `get_prediction_region_point`
 - [ ] Task: Conductor - User Manual Verification 'Inference Pipeline' (Protocol in workflow.md)
 
 ## Phase 4: OpenAI Compatibility & Finalization
