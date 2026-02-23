@@ -187,3 +187,51 @@ func TestHandleChatComplex(t *testing.T) {
 		t.Errorf("Expected status OK, got %v", resp.Status)
 	}
 }
+
+func TestHandleChatEndToEnd(t *testing.T) {
+	// Skip if libonnxruntime is not available
+	libPath := "/opt/homebrew/opt/onnxruntime/lib/libonnxruntime.dylib"
+	if _, err := os.Stat(libPath); os.IsNotExist(err) {
+		libPath = "/usr/local/lib/libonnxruntime.dylib"
+	}
+	if _, err := os.Stat(libPath); os.IsNotExist(err) {
+		t.Skip("libonnxruntime.dylib not found")
+	}
+
+	ort.SetSharedLibraryPath(libPath)
+	_ = ort.InitializeEnvironment()
+	defer ort.DestroyEnvironment()
+
+	engine, err := NewInferenceEngine("../../../onnx_models")
+	if err != nil {
+		t.Fatalf("NewInferenceEngine failed: %v", err)
+	}
+
+	img := image.NewRGBA(image.Rect(0, 0, 224, 224))
+	var buf bytes.Buffer
+	png.Encode(&buf, img)
+	base64Image := base64.StdEncoding.EncodeToString(buf.Bytes())
+
+	reqBody := fmt.Sprintf(`{
+		"model": "gui-actor",
+		"messages": [
+			{
+				"role": "user",
+				"content": [
+					{"type": "text", "text": "click start"},
+					{"type": "image_url", "image_url": {"url": "data:image/png;base64,%s"}}
+				]
+			}
+		]
+	}`, base64Image)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(reqBody))
+	w := httptest.NewRecorder()
+
+	engine.HandleChat(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status OK, got %v", resp.Status)
+	}
+}
