@@ -13,7 +13,7 @@ Initialize the Go project and set up persistent ONNX sessions with CoreML accele
     - [x] Implement Feature: Add model-specific loading logic to `NewInferenceEngine`
 - [x] Task: Conductor - User Manual Verification 'Architecture & Model Loading' (Protocol in workflow.md) (67a4545)
 
-## Phase 2: Request Handling & Preprocessing
+## Phase 2: Request Handling & Preprocessing [checkpoint: 3e969f6]
 Implement image decoding and the OpenAI-compatible request format.
 
 - [x] Task: Define OpenAI-compatible request/response structures and handler (c8342dc)
@@ -22,7 +22,7 @@ Implement image decoding and the OpenAI-compatible request format.
 - [x] Task: Implement image extraction and preprocessing for the vision model (8899207)
     - [x] Write Tests: Verify that base64/URL images are correctly decoded and resized/normalized
     - [x] Implement Feature: Add `PreprocessImage` utility to prepare data for the Vision Tower
-- [ ] Task: Conductor - User Manual Verification 'Request Handling & Preprocessing' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Request Handling & Preprocessing' (Protocol in workflow.md) (3e969f6)
 
 ## Phase 3: Inference Pipeline
 Orchestrate the full inference flow from vision to action.
