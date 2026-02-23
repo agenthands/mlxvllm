@@ -1,7 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -72,5 +77,27 @@ func TestHandleChat(t *testing.T) {
 	expected := "pyautogui.click(0.5, 0.5)"
 	if completion.Choices[0].Message.Content != expected {
 		t.Errorf("Expected content %q, got %q", expected, completion.Choices[0].Message.Content)
+	}
+}
+
+func TestPreprocessImage(t *testing.T) {
+	// Generate a 1x1 black PNG
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	img.Set(0, 0, color.Black)
+	var buf bytes.Buffer
+	png.Encode(&buf, img)
+	base64Image := base64.StdEncoding.EncodeToString(buf.Bytes())
+	
+	pixels, width, height, err := PreprocessImage(base64Image)
+	if err != nil {
+		t.Fatalf("PreprocessImage failed: %v", err)
+	}
+
+	if width != 1 || height != 1 {
+		t.Errorf("Expected 1x1 image, got %dx%d", width, height)
+	}
+
+	if len(pixels) != 3 { // 3 channels (RGB)
+		t.Errorf("Expected 3 pixels (RGB), got %d", len(pixels))
 	}
 }

@@ -1,11 +1,16 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 
 	ort "github.com/yalue/onnxruntime_go"
@@ -114,6 +119,35 @@ func (e *InferenceEngine) HandleChat(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// PreprocessImage decodes a base64 image and converts it to a float32 RGB slice
+func PreprocessImage(base64Str string) (pixels []float32, width, height int, err error) {
+	// Handle data URL prefix if present
+	if idx := strings.Index(base64Str, ","); idx != -1 {
+		base64Str = base64Str[idx+1:]
+	}
+
+	reader := base64.NewDecoder(base64.StdEncoding, strings.NewReader(base64Str))
+	img, _, err := image.Decode(reader)
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("failed to decode image: %v", err)
+	}
+
+	bounds := img.Bounds()
+	width, height = bounds.Dx(), bounds.Dy()
+	pixels = make([]float32, 0, width*height*3)
+
+	// Simple RGB extraction (not optimized for large images yet)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, g, b, _ := img.At(x, y).RGBA()
+			// RGBA() returns 16-bit values (0-65535)
+			pixels = append(pixels, float32(r)/65535.0, float32(g)/65535.0, float32(b)/65535.0)
+		}
+	}
+
+	return pixels, width, height, nil
 }
 
 func main() {
