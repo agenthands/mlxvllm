@@ -134,3 +134,22 @@ func TestRunInference(t *testing.T) {
 		t.Error("RunInference returned empty result")
 	}
 }
+
+func TestGetClickPoint(t *testing.T) {
+	// Sample attention scores for a 2x2 grid (4 patches)
+	// Scores: [0.1, 0.8, 0.05, 0.05] -> Max is at index 1 (top-right)
+	scores := []float32{0.1, 0.8, 0.05, 0.05}
+	nWidth, nHeight := 2, 2
+
+	x, y, err := GetClickPoint(scores, nWidth, nHeight)
+	if err != nil {
+		t.Fatalf("GetClickPoint failed: %v", err)
+	}
+
+	// Index 1 in 2x2 grid is x=1, y=0
+	// Normalized center of patch (1,0) should be around x=0.75, y=0.25
+	expectedX, expectedY := 0.75, 0.25
+	if x < expectedX-0.01 || x > expectedX+0.01 || y < expectedY-0.01 || y > expectedY+0.01 {
+		t.Errorf("Expected click point (%.2f, %.2f), got (%.2f, %.2f)", expectedX, expectedY, x, y)
+	}
+}

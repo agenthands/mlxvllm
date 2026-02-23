@@ -162,6 +162,38 @@ func (e *InferenceEngine) RunInference(pixels []float32, width, height int, inst
 	return "pyautogui.click(0.5, 0.5)", nil
 }
 
+// GetClickPoint finds the highest-activated patch and returns its normalized center (x, y)
+func GetClickPoint(scores []float32, nWidth, nHeight int) (x, y float64, err error) {
+	if len(scores) == 0 {
+		return 0, 0, fmt.Errorf("empty attention scores")
+	}
+
+	maxScore := float32(-1.0)
+	maxIndex := -1
+	for i, score := range scores {
+		if score > maxScore {
+			maxScore = score
+			maxIndex = i
+		}
+	}
+
+	if maxIndex == -1 {
+		return 0, 0, fmt.Errorf("failed to find max score")
+	}
+
+	// Calculate 2D coordinates of the patch
+	// Index i = y * nWidth + x
+	posY := maxIndex / nWidth
+	posX := maxIndex % nWidth
+
+	// Return the center of the patch, normalized [0, 1]
+	// Center of patch (x, y) is (x + 0.5, y + 0.5)
+	normX := (float64(posX) + 0.5) / float64(nWidth)
+	normY := (float64(posY) + 0.5) / float64(nHeight)
+
+	return normX, normY, nil
+}
+
 func main() {
 	// 1. Initialise the global ONNX runtime
 	libPath := "/opt/homebrew/opt/onnxruntime/lib/libonnxruntime.dylib"
