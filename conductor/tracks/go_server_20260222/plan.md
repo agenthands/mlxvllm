@@ -2,16 +2,16 @@
 
 This plan details the steps to implement a high-performance Go-based inference server for GUI-Actor.
 
-## Phase 1: Architecture & Model Loading
+## Phase 1: Architecture & Model Loading [checkpoint: 67a4545]
 Initialize the Go project and set up persistent ONNX sessions with CoreML acceleration.
 
 - [x] Task: Initialize Go module and setup ONNX session management infrastructure (ce873b2)
-    - [ ] Write Tests: Define tests for session initialization and CoreML provider availability
-    - [ ] Implement Feature: Create the base `InferenceEngine` struct and session loading logic
+    - [x] Write Tests: Define tests for session initialization and CoreML provider availability
+    - [x] Implement Feature: Create the base `InferenceEngine` struct and session loading logic
 - [x] Task: Implement Vision Tower and Pointer Head session loading (e702d45)
-    - [ ] Write Tests: Verify that ONNX files are correctly loaded and sessions are ready
-    - [ ] Implement Feature: Add model-specific loading logic to `NewInferenceEngine`
-- [ ] Task: Conductor - User Manual Verification 'Architecture & Model Loading' (Protocol in workflow.md)
+    - [x] Write Tests: Verify that ONNX files are correctly loaded and sessions are ready
+    - [x] Implement Feature: Add model-specific loading logic to `NewInferenceEngine`
+- [x] Task: Conductor - User Manual Verification 'Architecture & Model Loading' (Protocol in workflow.md) (67a4545)
 
 ## Phase 2: Request Handling & Preprocessing
 Implement image decoding and the OpenAI-compatible request format.
