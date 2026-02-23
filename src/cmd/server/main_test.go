@@ -101,3 +101,36 @@ func TestPreprocessImage(t *testing.T) {
 		t.Errorf("Expected 3 pixels (RGB), got %d", len(pixels))
 	}
 }
+
+func TestRunInference(t *testing.T) {
+	// Skip if libonnxruntime is not available
+	libPath := "/opt/homebrew/opt/onnxruntime/lib/libonnxruntime.dylib"
+	if _, err := os.Stat(libPath); os.IsNotExist(err) {
+		libPath = "/usr/local/lib/libonnxruntime.dylib"
+	}
+	if _, err := os.Stat(libPath); os.IsNotExist(err) {
+		t.Skip("libonnxruntime.dylib not found")
+	}
+
+	ort.SetSharedLibraryPath(libPath)
+	_ = ort.InitializeEnvironment()
+	defer ort.DestroyEnvironment()
+
+	engine, err := NewInferenceEngine("../../../onnx_models")
+	if err != nil {
+		t.Fatalf("NewInferenceEngine failed: %v", err)
+	}
+
+	pixels := make([]float32, 224*224*3)
+	instruction := "click the button"
+	
+	// Test the core inference orchestration
+	result, err := engine.RunInference(pixels, 224, 224, instruction)
+	if err != nil {
+		t.Fatalf("RunInference failed: %v", err)
+	}
+
+	if result == "" {
+		t.Error("RunInference returned empty result")
+	}
+}

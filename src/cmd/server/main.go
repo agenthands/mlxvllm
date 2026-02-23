@@ -150,6 +150,18 @@ func PreprocessImage(base64Str string) (pixels []float32, width, height int, err
 	return pixels, width, height, nil
 }
 
+// RunInference orchestrates the Vision -> LLM -> Pointer Head pipeline
+func (e *InferenceEngine) RunInference(pixels []float32, width, height int, instruction string) (string, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	// 1. Run Vision Tower
+	// 2. Run LLM (Backbone) - Note: This needs to be implemented or mocked
+	// 3. Run Pointer Head
+
+	return "pyautogui.click(0.5, 0.5)", nil
+}
+
 func main() {
 	// 1. Initialise the global ONNX runtime
 	libPath := "/opt/homebrew/opt/onnxruntime/lib/libonnxruntime.dylib"
