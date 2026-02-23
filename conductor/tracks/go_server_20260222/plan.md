@@ -24,7 +24,7 @@ Implement image decoding and the OpenAI-compatible request format.
     - [x] Implement Feature: Add `PreprocessImage` utility to prepare data for the Vision Tower
 - [x] Task: Conductor - User Manual Verification 'Request Handling & Preprocessing' (Protocol in workflow.md) (3e969f6)
 
-## Phase 3: Inference Pipeline
+## Phase 3: Inference Pipeline [checkpoint: 5b627aa]
 Orchestrate the full inference flow from vision to action.
 
 - [x] Task: Orchestrate the sequence: Vision -> LLM -> Pointer Head (3b5a3ee)
@@ -33,7 +33,7 @@ Orchestrate the full inference flow from vision to action.
 - [x] Task: Extract coordinates from Pointer Head attention scores (ac366cc)
     - [x] Write Tests: Verify that attention scores are correctly transformed into click points
     - [x] Implement Feature: Port coordinate extraction logic from Python's `get_prediction_region_point`
-- [ ] Task: Conductor - User Manual Verification 'Inference Pipeline' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Inference Pipeline' (Protocol in workflow.md) (5b627aa)
 
 ## Phase 4: OpenAI Compatibility & Finalization
 Finalize the API response format and perform end-to-end testing.
