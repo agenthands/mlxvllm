@@ -38,10 +38,10 @@ Orchestrate the full inference flow from vision to action.
 ## Phase 4: OpenAI Compatibility & Finalization
 Finalize the API response format and perform end-to-end testing.
 
-- [ ] Task: Implement final Chat Completion response format
-    - [ ] Write Tests: Verify the structure of the final JSON response matches OpenAI standards
-    - [ ] Implement Feature: Complete the handler logic to return formatted results
-- [ ] Task: End-to-end integration tests and performance check
-    - [ ] Write Tests: Execute full cycles from request to response against a local mock/test model
-    - [ ] Implement Feature: Add logging, metrics, and ensure concurrent safety
+- [x] Task: Implement final Chat Completion response format (5a3c776)
+    - [x] Write Tests: Verify the structure of the final JSON response matches OpenAI standards
+    - [x] Implement Feature: Complete the handler logic to return formatted results
+- [x] Task: End-to-end integration tests and performance check (fa37a82)
+    - [x] Write Tests: Execute full cycles from request to response against a local mock/test model
+    - [x] Implement Feature: Add logging, metrics, and ensure concurrent safety
 - [ ] Task: Conductor - User Manual Verification 'OpenAI Compatibility' (Protocol in workflow.md)
