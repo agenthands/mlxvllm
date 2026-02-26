@@ -257,3 +257,41 @@ func (t *Tree) Unpin(node *Node) {
 		}
 	}
 }
+
+// PrunePoisoned removes all poisoned nodes from the tree
+// This is cascading - children of poisoned nodes are also removed
+// Thread-safe: acquires write lock
+func (t *Tree) PrunePoisoned() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.prunePoisonedRecursive(t.Root)
+}
+
+// prunePoisonedRecursive recursively removes poisoned nodes
+// Returns true if this node should be removed (is poisoned)
+func (t *Tree) prunePoisonedRecursive(node *Node) bool {
+	if node == nil {
+		return false
+	}
+
+	// First, recurse into children
+	var toRemove []uint32
+	for token, child := range node.Children {
+		if t.prunePoisonedRecursive(child) {
+			toRemove = append(toRemove, token)
+		}
+	}
+
+	// Remove marked children
+	for _, token := range toRemove {
+		delete(node.Children, token)
+	}
+
+	// Check if this node is poisoned (has error, not just pending)
+	if node.err != nil {
+		return true
+	}
+
+	return false
+}

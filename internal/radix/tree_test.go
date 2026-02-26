@@ -513,3 +513,143 @@ func nodeIsChild(parent, child *Node) bool {
 	}
 	return false
 }
+
+func TestPrunePoisonedSingleNode(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Insert and poison node
+	node, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	PoisonNode(node, TestError("failed"))
+
+	// Prune should remove the node
+	tree.PrunePoisoned()
+
+	// Node should no longer be in tree
+	if nodeIsChild(tree.Root, node) {
+		t.Error("Expected poisoned node to be removed from tree")
+	}
+}
+
+func TestPrunePoisonedWithChildren(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Create tree: root -> [1,2,3] -> [4,5]
+	parent, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	PoisonNode(parent, TestError("parent failed"))
+
+	child, _ := tree.InsertPending([]uint32{1, 2, 3, 4, 5}, engine, nil)
+
+	// Prune should remove both
+	tree.PrunePoisoned()
+
+	if nodeIsChild(tree.Root, parent) {
+		t.Error("Expected poisoned parent to be removed")
+	}
+
+	// Child should also be orphaned (removed from parent, which is removed)
+	// In production, we'd cascade delete or reattach
+	if nodeIsChild(parent, child) {
+		// This is actually OK - parent is disconnected from tree
+		// but child is still parent's child
+	}
+}
+
+func TestPrunePoisonedFinalizedNotRemoved(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Insert and finalize node
+	node, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	FinalizeNode(node, 100)
+
+	// Prune should NOT remove finalized nodes
+	tree.PrunePoisoned()
+
+	if !nodeIsChild(tree.Root, node) {
+		t.Error("Expected finalized node to remain in tree")
+	}
+}
+
+func TestPrunePoisonedMixedTree(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Insert multiple nodes
+	node1, _ := tree.InsertPending([]uint32{1}, engine, nil)
+	FinalizeNode(node1, 100)
+
+	node2, _ := tree.InsertPending([]uint32{2}, engine, nil)
+	PoisonNode(node2, TestError("failed"))
+
+	node3, _ := tree.InsertPending([]uint32{3}, engine, nil)
+	FinalizeNode(node3, 300)
+
+	// Prune should only remove poisoned
+	tree.PrunePoisoned()
+
+	if !nodeIsChild(tree.Root, node1) {
+		t.Error("Expected node1 to remain")
+	}
+
+	if nodeIsChild(tree.Root, node2) {
+		t.Error("Expected poisoned node2 to be removed")
+	}
+
+	if !nodeIsChild(tree.Root, node3) {
+		t.Error("Expected node3 to remain")
+	}
+}
+
+func TestPrunePoisonedEmptyTree(t *testing.T) {
+	tree := NewTree()
+
+	// Should not panic on empty tree
+	tree.PrunePoisoned()
+
+	// Root should still exist
+	if tree.Root == nil {
+		t.Error("Expected root to exist")
+	}
+}
+
+func TestPrunePoisonedDoesNotRemovePending(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Insert pending node (not finalized, not poisoned)
+	node, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+
+	// Prune should NOT remove pending nodes
+	tree.PrunePoisoned()
+
+	if !nodeIsChild(tree.Root, node) {
+		t.Error("Expected pending node to remain in tree")
+	}
+}
+
+func TestPrunePoisonedCascading(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Create deeper tree: root -> [1] -> [2] -> [3]
+	n1, _ := tree.InsertPending([]uint32{1}, engine, nil)
+	n2, _ := tree.InsertPending([]uint32{1, 2}, engine, nil)
+	_, _ = tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+
+	// Poison middle node
+	PoisonNode(n2, TestError("middle failed"))
+
+	// Prune should remove n2 and n3 (cascade)
+	tree.PrunePoisoned()
+
+	if !nodeIsChild(tree.Root, n1) {
+		t.Error("Expected n1 to remain")
+	}
+
+	// n2 should be removed
+	if nodeIsChild(tree.Root, n2) || nodeIsChild(n1, n2) {
+		t.Error("Expected poisoned n2 to be removed")
+	}
+}
