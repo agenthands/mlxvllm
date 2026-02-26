@@ -653,3 +653,187 @@ func TestPrunePoisonedCascading(t *testing.T) {
 		t.Error("Expected poisoned n2 to be removed")
 	}
 }
+
+func TestUnpinDecrementsRefCount(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	node, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	FinalizeNode(node, 100)
+
+	tree.Unpin(node) // Now thread-safe, no manual lock needed
+
+	if node.refCount.Load() != 0 {
+		t.Errorf("Expected refCount 0, got %d", node.refCount.Load())
+	}
+}
+
+func TestUnpinAddsToLRU(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	node, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	FinalizeNode(node, 100)
+
+	tree.Unpin(node)
+
+	// Node should be in LRU list
+	if node.lruElem == nil {
+		t.Error("Expected node to be in LRU list")
+	}
+
+	if tree.lruList.Len() != 1 {
+		t.Errorf("Expected LRU length 1, got %d", tree.lruList.Len())
+	}
+}
+
+func TestUnpinInternalNodeNotAddedToLRU(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Create parent and child
+	parent, _ := tree.InsertPending([]uint32{1, 2}, engine, nil)
+	FinalizeNode(parent, 100)
+
+	child, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	FinalizeNode(child, 200)
+
+	tree.Unpin(parent) // Parent has children
+
+	// Parent should NOT be in LRU (has children)
+	if parent.lruElem != nil {
+		t.Error("Expected internal node to not be in LRU")
+	}
+}
+
+func TestUnpinPendingNotAddedToLRU(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	node, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	// Don't finalize - node is pending
+
+	tree.Unpin(node)
+
+	// Pending node should NOT be in LRU
+	if node.lruElem != nil {
+		t.Error("Expected pending node to not be in LRU")
+	}
+}
+
+func TestEvictLRU(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Create and finalize multiple nodes
+	node1, _ := tree.InsertPending([]uint32{1}, engine, nil)
+	FinalizeNode(node1, 100)
+	tree.Unpin(node1)
+
+	node2, _ := tree.InsertPending([]uint32{2}, engine, nil)
+	FinalizeNode(node2, 200)
+	tree.Unpin(node2)
+
+	node3, _ := tree.InsertPending([]uint32{3}, engine, nil)
+	FinalizeNode(node3, 300)
+	tree.Unpin(node3)
+
+	// LRU should have 3 nodes
+	if tree.lruList.Len() != 3 {
+		t.Errorf("Expected LRU length 3, got %d", tree.lruList.Len())
+	}
+
+	// Evict oldest (node1 was added first)
+	tree.EvictLRU(1)
+
+	// Should have 2 nodes left
+	if tree.lruList.Len() != 2 {
+		t.Errorf("Expected LRU length 2 after eviction, got %d", tree.lruList.Len())
+	}
+
+	// node1 should be removed from tree
+	if nodeIsChild(tree.Root, node1) {
+		t.Error("Expected evicted node to be removed from tree")
+	}
+
+	// node2 and node3 should still be in tree
+	if !nodeIsChild(tree.Root, node2) {
+		t.Error("Expected node2 to still be in tree")
+	}
+	if !nodeIsChild(tree.Root, node3) {
+		t.Error("Expected node3 to still be in tree")
+	}
+}
+
+func TestEvictAllLRU(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Create nodes
+	for i := uint32(1); i <= 5; i++ {
+		node, _ := tree.InsertPending([]uint32{i}, engine, nil)
+		FinalizeNode(node, uint64(i*100))
+		tree.Unpin(node)
+	}
+
+	// Evict all
+	tree.EvictLRU(5)
+
+	// All nodes should be removed
+	if tree.lruList.Len() != 0 {
+		t.Errorf("Expected empty LRU, got length %d", tree.lruList.Len())
+	}
+}
+
+func TestEvictZeroDoesNothing(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	node, _ := tree.InsertPending([]uint32{1}, engine, nil)
+	FinalizeNode(node, 100)
+	tree.Unpin(node)
+
+	tree.EvictLRU(0)
+
+	if tree.lruList.Len() != 1 {
+		t.Error("Evicting 0 should do nothing")
+	}
+}
+
+func TestMultipleUnpin(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	node, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+
+	// Pin multiple times
+	node.refCount.Add(2) // Now refCount = 3
+
+	FinalizeNode(node, 100)
+
+	tree.Unpin(node) // refCount = 2
+
+	if node.refCount.Load() != 2 {
+		t.Errorf("Expected refCount 2, got %d", node.refCount.Load())
+	}
+
+	if node.lruElem != nil {
+		t.Error("Expected node to not be in LRU (still pinned)")
+	}
+
+	tree.Unpin(node) // refCount = 1
+
+	if node.refCount.Load() != 1 {
+		t.Errorf("Expected refCount 1, got %d", node.refCount.Load())
+	}
+
+	tree.Unpin(node) // refCount = 0, should add to LRU
+
+	if node.refCount.Load() != 0 {
+		t.Errorf("Expected refCount 0, got %d", node.refCount.Load())
+	}
+
+	if node.lruElem == nil {
+		t.Error("Expected node to be in LRU after fully unpinned")
+	}
+}

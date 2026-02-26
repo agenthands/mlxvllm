@@ -239,8 +239,15 @@ func (t *Tree) findParentFor(tokens []uint32, start *Node) *Node {
 }
 
 // Unpin decrements node refCount and adds to LRU if eligible
-// Thread-safe: must be called with tree lock held by caller
+// Thread-safe wrapper that acquires lock
 func (t *Tree) Unpin(node *Node) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.unpin(node)
+}
+
+// unpin is the internal implementation without locking
+func (t *Tree) unpin(node *Node) {
 	// Decrement refCount
 	newCount := node.refCount.Add(-1)
 
@@ -254,6 +261,60 @@ func (t *Tree) Unpin(node *Node) {
 	if newCount == 0 && len(node.Children) == 0 && node.IsReady() {
 		if node.lruElem == nil {
 			node.lruElem = t.lruList.PushFront(node)
+		}
+	}
+}
+
+// EvictLRU evicts the oldest n nodes from the LRU list
+// Evicted nodes are removed from the tree and their cache handles are freed
+// Thread-safe: acquires write lock
+func (t *Tree) EvictLRU(n int) {
+	if n <= 0 {
+		return
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	for i := 0; i < n && t.lruList.Len() > 0; i++ {
+		// Get oldest element (back of list)
+		elem := t.lruList.Back()
+		if elem == nil {
+			break
+		}
+
+		node := elem.Value.(*Node)
+
+		// Remove from LRU list
+		t.lruList.Remove(elem)
+		node.lruElem = nil
+
+		// Remove from tree
+		t.removeNode(node)
+	}
+}
+
+// removeNode removes a node from the tree structure
+// Does NOT free cache handle - caller must do that
+func (t *Tree) removeNode(node *Node) {
+	if node.Parent == nil {
+		// Don't remove root
+		return
+	}
+
+	// Find this node in parent's children
+	for token, child := range node.Parent.Children {
+		if child == node {
+			delete(node.Parent.Children, token)
+			break
+		}
+	}
+
+	// Check if parent became leaf without children and is unpinned
+	if len(node.Parent.Children) == 0 && node.Parent.refCount.Load() == 0 && node.Parent.IsReady() {
+		// Add parent to LRU if not already there
+		if node.Parent.lruElem == nil {
+			node.Parent.lruElem = t.lruList.PushFront(node.Parent)
 		}
 	}
 }
