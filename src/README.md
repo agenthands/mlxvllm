@@ -1,34 +1,39 @@
-# MLX-VLLM Server
+# GUI-Actor Go Server
 
-MLX-based Vision-Language Model server for GUI grounding with OpenAI-compatible API.
+OpenAI-compatible API server for GUI-Actor models.
 
 ## Overview
 
-A high-performance Go HTTP server that runs GUI-Actor models using Apple's MLX framework for native Metal acceleration on Apple Silicon. The server provides an OpenAI-compatible API for vision-language inference with coordinate-free GUI grounding.
+A Go HTTP server providing an OpenAI-compatible API for GUI-Actor inference. Currently implements the HTTP API layer and infrastructure; MLX runtime integration is in progress.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Go HTTP Server                           │
-│                   (localhost:8080)                           │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   Request   │  │  Handler    │  │    Inference        │ │
-│  │   Handler   │→ │  (OpenAI)   │→ │    Pipeline         │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-│                                              ↓              │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │              MLX Engine (via cgo)                       ││
-│  │  ┌──────────┐  ┌──────────┐  ┌─────────────┐          ││
-│  │  │ Vision   │  │ Qwen2-VL │  │  Pointer    │          ││
-│  │  │ Encoder  │→ │  2B/7B   │→ │   Head      │ → coords ││
-│  │  └──────────┘  └──────────┘  └─────────────┘          ││
-│  │        ↑             ↑              ↑                   ││
-│  │        └─────────────┴──────────────┘                   ││
-│  │              Metal (via MLX)                             ││
-│  └─────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Go HTTP Server                               │
+│                       (localhost:8080)                               │
+├─────────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────────┐   │
+│  │   HTTP       │  │    API       │  │     Model               │   │
+│  │   Server     │→ │   Handler    │→ │     Registry            │   │
+│  │  (gorilla/)  │  │  (OpenAI)    │  │  (memory-managed)       │   │
+│  └──────────────┘  └──────────────┘  └─────────────────────────┘   │
+│                                                  ↓                   │
+│  ┌─────────────────────────────────────────────────────────────────┐│
+│  │                   MLX Runtime (via cgo)                         ││
+│  │  ┌─────────────────────────────────────────────────────────┐   ││
+│  │  │  Status: ⚠️ Placeholder implementation                  │   ││
+│  │  │  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐  │   ││
+│  │  │  │ Vision       │  │ Qwen2-VL     │  │ Pointer     │  │   ││
+│  │  │  │ Encoder      │→ │ 2B/7B LLM    │→ │ Head        │  │   ││
+│  │  │  └──────────────┘  └──────────────┘  └─────────────┘  │   ││
+│  │  │         ↓                  ↓                 ↓          │   ││
+│  │  │    image_embeds      hidden_states    attn_scores     │   ││
+│  │  └─────────────────────────────────────────────────────────┘   ││
+│  │                          ↓                                     ││
+│  │              Metal Performance Shaders                         ││
+│  └─────────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Features
@@ -142,6 +147,21 @@ src/
 └── go.mod                   # Go module definition
 ```
 
+## ONNX Model Export
+
+The repository includes scripts to export GUI-Actor model components to ONNX format:
+
+```bash
+# Export vision tower and pointer head
+python scripts/export_onnx.py microsoft/GUI-Actor-7B-Qwen2-VL
+```
+
+**Exported Components:**
+- `onnx_models/vision_tower.onnx` - Vision encoder (ViT)
+- `onnx_models/pointer_head.onnx` - Multi-patch pointer head (attention-based action head)
+
+**Note:** The full Qwen2-VL LLM (7B parameters) requires separate export using `optimum-cli` due to memory considerations.
+
 ## MLX Interface
 
 The MLX cgo bindings provide the following interface:
@@ -188,25 +208,63 @@ go fmt ./...
 go vet ./...
 ```
 
-## Current Status
+## Implementation Status
 
-- ✅ Configuration management with YAML
-- ✅ MLX cgo bindings (placeholder implementation)
-- ✅ Image preprocessing with smart resize
-- ✅ Model registry with memory management
-- ✅ OpenAI-compatible API handlers
-- ✅ HTTP server with routing
-- ⚠️ MLX inference integration (requires actual MLX models)
-- ⚠️ Tokenizer integration (SentencePiece)
+### Completed ✅
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Configuration management | ✅ Complete | YAML config loader with profiles |
+| HTTP server | ✅ Complete | gorilla/mux routing, graceful shutdown |
+| OpenAI-compatible API | ✅ Complete | All endpoints implemented |
+| Model registry | ✅ Complete | Memory-aware loading/unloading |
+| Image preprocessing | ✅ Complete | Smart resize with 28px grid alignment |
+| Integration tests | ✅ Complete | End-to-end test coverage |
+
+### In Progress ⚠️
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| MLX cgo bindings | ⚠️ Placeholder | `mlx.c` has stub implementation |
+| Tokenizer | ⚠️ Not Started | SentencePiece wrapper needed |
+| Inference pipeline | ⚠️ Not Started | Vision → LLM → Pointer head |
+| Model loading | ⚠️ Not Started | Actual model weight loading |
+
+### Architecture Notes
+
+The server is designed to integrate with Apple's MLX framework for Metal-accelerated inference. The current implementation provides the complete HTTP API and infrastructure layer. The MLX runtime integration (`src/internal/mlx/`) requires:
+
+1. Linking to MLX C API (`#include <mlx/mlx.h>`)
+2. Implementing `mlx_load_model()` using mlx-vlm loader
+3. Implementing `mlx_forward()` for inference
+4. Adding SentencePiece tokenizer for tokenization
+
+See [docs/plans/2026-02-26-mlx-go-server-design.md](../docs/plans/2026-02-26-mlx-go-server-design.md) for the full design specification.
 
 ## Roadmap
 
-1. Complete MLX model loading integration
-2. Add SentencePiece tokenizer
-3. Implement full inference pipeline
-4. Add streaming support
-5. Model quantization for faster inference
-6. Docker support for Linux
+### Phase 1: MLX Integration (Next)
+- [ ] Link to MLX C API (`#include <mlx/mlx.h>`)
+- [ ] Implement `mlx_load_model()` using mlx-vlm
+- [ ] Implement `mlx_forward()` for inference
+- [ ] Add memory allocation for model weights
+
+### Phase 2: Tokenizer & Preprocessing
+- [ ] SentencePiece tokenizer wrapper
+- [ ] Prompt template construction
+- [ ] Special token handling (`<|pointer_start|>`, etc.)
+
+### Phase 3: Full Inference Pipeline
+- [ ] Vision tower forward pass
+- [ ] Qwen2-VL LLM forward pass
+- [ ] Pointer head attention scoring
+- [ ] Connected component post-processing
+
+### Phase 4: Production Features
+- [ ] Streaming responses
+- [ ] Model quantization (INT4/INT8)
+- [ ] Metrics and observability
+- [ ] Docker support for Linux deployments
 
 ## License
 

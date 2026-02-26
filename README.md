@@ -100,6 +100,60 @@ Table 2. Main results on the ScreenSpot-Pro and ScreenSpot-v2 with **Qwen2.5-VL*
 | **GUI-Actor-3B**   | Qwen2.5-VL    | **42.2**       | **91.0**       |
 | **GUI-Actor-3B + Verifier**   | Qwen2.5-VL    | **45.9**       | **92.4**       |
 
+## :rocket: Production Go Server (OpenAI-Compatible API)
+
+A production-ready Go HTTP server that runs GUI-Actor models with an OpenAI-compatible API. Currently supports:
+
+- **OpenAI-Compatible API**: Drop-in replacement for chat completions endpoint
+- **Multi-Model Support**: GUI-Actor-2B and GUI-Actor-7B models
+- **Memory Management**: Dynamic model loading/unloading with LRU eviction
+- **Image Preprocessing**: Smart resize with pixel constraints and grid alignment
+- **Health Monitoring**: Built-in health check and status endpoints
+
+### Quick Start (Go Server)
+
+```bash
+# From the repository root
+cd src
+
+# Install dependencies
+go mod download
+
+# Run the server
+go run cmd/server/main.go -config ./models/config.yaml
+```
+
+### API Usage
+
+```bash
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gui-actor-2b",
+    "messages": [{
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "Click the submit button"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}}
+      ]
+    }]
+  }'
+```
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/v1/health` | Health check + uptime |
+| GET | `/v1/models` | List available models |
+| POST | `/v1/models/{id}/load` | Load model into memory |
+| DELETE | `/v1/models/{id}` | Unload model |
+| POST | `/v1/chat/completions` | Inference request |
+
+**Note**: The Go server is currently in **beta**. MLX runtime integration is in progress. See [src/README.md](./src/README.md) for details.
+
+---
+
 ## :rescue_worker_helmet: Installation
 1. Clone this repo to your local machine:
 ```bash

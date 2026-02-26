@@ -51,22 +51,42 @@ ruff format .
 ```
 
 ### Go Server (Production Inference)
+
+A Go HTTP server with OpenAI-compatible API for running GUI-Actor models:
+
 ```bash
-# Ensure libonnxruntime is available
-export DYLD_LIBRARY_PATH=/opt/homebrew/opt/onnxruntime/lib:$DYLD_LIBRARY_PATH
+# From repository root
+cd src
+
+# Install dependencies
+go mod download
+
+# Run server
+go run cmd/server/main.go -config ./models/config.yaml
 
 # Run tests
 go test ./src/cmd/server/...
-
-# Run server
-go run src/cmd/server/main.go
+go test ./src/internal/api/...
+go test ./src/internal/mlx/...
+go test ./src/internal/model/...
+go test ./src/internal/config/...
 ```
+
+**Current Implementation Status:**
+- ✅ Configuration management (YAML config loader)
+- ✅ HTTP server with OpenAI-compatible endpoints
+- ✅ Model registry with memory management
+- ✅ Image preprocessing (smart resize with grid alignment)
+- ⚠️ MLX runtime integration (placeholder - requires linking to MLX C API)
+- ⚠️ Tokenizer integration (SentencePiece wrapper needed)
+- ⚠️ Full inference pipeline (vision tower → LLM → pointer head)
 
 ## Architecture
 
 ### Core Components
 
 ```
+Python Package:
 src/gui_actor/           # Python package
   modeling.py            # VisionHead_MultiPatch + Qwen2VLForConditionalGenerationWithPointer
   modeling_qwen25vl.py   # Qwen2.5-VL variant
@@ -75,19 +95,33 @@ src/gui_actor/           # Python package
   trainer.py             # Training logic
   dataset.py             # Data loading
 
-src/cmd/server/          # Go inference server (OpenAI-compatible API)
-  main.go                # ONNX Runtime with CoreML acceleration
+Go Server (OpenAI-Compatible API):
+src/cmd/server/          # Go HTTP server entry point
+  main.go                # Server with graceful shutdown
+  integration_test.go    # End-to-end integration tests
+src/internal/api/        # HTTP API layer
+  handler.go             # OpenAI-compatible request handlers
+  server.go              # HTTP server setup with gorilla/mux
+  types.go               # Request/response type definitions
+src/internal/config/     # Configuration management
+  config.go              # YAML config loader
+src/internal/model/      # Model registry
+  registry.go            # Model loading/unloading with memory management
+src/internal/mlx/        # MLX runtime bindings (via cgo)
+  mlx.go                 # Go bindings for MLX C API
+  mlx.h / mlx.c          # C bridge layer (placeholder for MLX linking)
+  preprocessing.go       # Image smart resize with grid alignment
 
+Other:
 verifier/                # Grounding verifier model
   verifier_model.py      # Verifier architecture
   eval_ss_with_verifier.py
-
 train.py                 # Main training entry point
 scripts/                 # Shell scripts + DeepSpeed configs (zero3.json)
 eval/                    # Benchmark evaluation scripts
 demo/                    # Gradio web demo
 data/                    # data_config.yaml for training datasets
-onnx_models/             # Exported ONNX models for production
+onnx_models/             # Exported ONNX models (vision_tower, pointer_head)
 ```
 
 ### Model Flow
@@ -107,15 +141,53 @@ The `ForceFollowTokensLogitsProcessor` ensures these tokens appear in the correc
 
 ## Production Deployment (Apple Silicon)
 
-The Go server (`src/cmd/server/main.go`) provides an OpenAI-compatible endpoint at `/v1/chat/completions`:
-- Uses ONNX Runtime with CoreML execution provider for M4 Pro hardware acceleration
-- Models stay loaded in GPU memory via `ort.DynamicAdvancedSession`
-- Handles image encoding (base64) and multi-turn chat history
+The Go server (`src/cmd/server/main.go`) provides an OpenAI-compatible API:
 
+**Server Features:**
+- OpenAI-compatible `/v1/chat/completions` endpoint
+- Multi-model support (GUI-Actor-2B, GUI-Actor-7B)
+- Memory-aware model management with LRU eviction
+- Health monitoring and status endpoints
+- Graceful shutdown with model cleanup
+
+**Client Usage:**
 ```go
-// Client usage
+// Using OpenAI Go SDK
 client := openai.NewClient("http://localhost:8080/v1")
 resp, err := client.CreateChatCompletion(ctx, req)
+```
+
+**Configuration (`src/models/config.yaml`):**
+```yaml
+server:
+  host: "127.0.0.1"
+  port: 8080
+  default_model: "gui-actor-2b"
+
+models:
+  gui-actor-2b:
+    path: "./models/gui-actor-2b"
+    enabled: true
+    preload: true
+    min_pixels: 3136      # 56x56 minimum
+    max_pixels: 5720064   # ~3192x1792
+    max_context_length: 8192
+  
+  gui-actor-7b:
+    path: "./models/gui-actor-7b"
+    enabled: true
+    preload: false
+    min_pixels: 3136
+    max_pixels: 12845056  # 7B supports higher resolution
+    max_context_length: 24576
+
+profiles:
+  fast:
+    max_pixels: 1048576    # ~1024x1024, low latency
+  balanced:
+    max_pixels: 5720064    # Default
+  quality:
+    max_pixels: 12845056   # Maximum accuracy
 ```
 
 ## Training Data Configuration
