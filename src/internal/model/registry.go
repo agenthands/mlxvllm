@@ -22,10 +22,10 @@ type Model interface {
 }
 
 type Registry struct {
-	mu     sync.RWMutex
-	cfg    *config.Config
-	models map[string]*ModelStatus
-	loaded map[string]Model
+	mu      sync.RWMutex
+	cfg     *config.Config
+	models  map[string]*ModelStatus
+	loaded  map[string]Model
 	totalGB float64
 }
 

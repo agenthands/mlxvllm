@@ -40,11 +40,11 @@ type LoggingConfig struct {
 }
 
 type Config struct {
-	Server   ServerConfig              `yaml:"server"`
-	Models   map[string]ModelConfig    `yaml:"models"`
-	Profiles map[string]ProfileConfig  `yaml:"profiles"`
-	Memory   MemoryConfig              `yaml:"memory"`
-	Logging  LoggingConfig             `yaml:"logging"`
+	Server   ServerConfig             `yaml:"server"`
+	Models   map[string]ModelConfig   `yaml:"models"`
+	Profiles map[string]ProfileConfig `yaml:"profiles"`
+	Memory   MemoryConfig             `yaml:"memory"`
+	Logging  LoggingConfig            `yaml:"logging"`
 }
 
 func LoadConfig(path string) (*Config, error) {

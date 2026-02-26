@@ -46,10 +46,10 @@ type ChatCompletionResponse struct {
 
 // Choice represents a completion choice
 type Choice struct {
-	Index        int     `json:"index"`
-	Message      Message `json:"message"`
-	FinishReason string  `json:"finish_reason"`
-	Delta        *Message `json:"delta,omitempty"` // For streaming
+	Index        int      `json:"index"`
+	Message      Message  `json:"message"`
+	FinishReason string   `json:"finish_reason"`
+	Delta        *Message `json:"delta,omitempty"`       // For streaming
 	Coordinates  *Point   `json:"coordinates,omitempty"` // GUI-Actor specific
 }
 

@@ -5,18 +5,18 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/agenthands/mlxvllm/internal/model"
+	"github.com/gorilla/mux"
 )
 
 type Handler struct {
-	registry *model.Registry
+	registry  *model.Registry
 	startTime time.Time
 }
 
 func NewHandler(registry *model.Registry) *Handler {
 	return &Handler{
-		registry: registry,
+		registry:  registry,
 		startTime: time.Now(),
 	}
 }
