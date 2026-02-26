@@ -10,9 +10,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/agenthands/gui-actor/internal/api"
-	"github.com/agenthands/gui-actor/internal/config"
-	"github.com/agenthands/gui-actor/internal/model"
+	"github.com/agenthands/mlxvllm/internal/api"
+	"github.com/agenthands/mlxvllm/internal/config"
+	"github.com/agenthands/mlxvllm/internal/model"
 )
 
 var (

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/agenthands/gui-actor/internal/config"
+	"github.com/agenthands/mlxvllm/internal/config"
 )
 
 type ModelStatus struct {

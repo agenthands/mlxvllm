@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/agenthands/gui-actor/internal/model"
+	"github.com/agenthands/mlxvllm/internal/model"
 )
 
 type Handler struct {

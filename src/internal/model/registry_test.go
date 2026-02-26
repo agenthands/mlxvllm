@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	"github.com/agenthands/gui-actor/internal/config"
+	"github.com/agenthands/mlxvllm/internal/config"
 )
 
 func TestNewRegistry(t *testing.T) {
