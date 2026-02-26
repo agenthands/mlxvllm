@@ -212,3 +212,87 @@ The grounding verifier is trained to validate whether a candidate click position
 - **Go**: Standard Go testing with `testing` package
 - **Model modifications**: Extend `src/gui_actor/modeling.py` or `modeling_qwen25vl.py`
 - **New datasets**: Add entries to `data/data_config.yaml`
+
+## Test Coverage Requirements
+
+**MANDATORY: 100% test coverage for ALL new Go code.**
+
+### Current Coverage Status (2026-02-26)
+
+| Package | Coverage | Status |
+|---------|----------|--------|
+| `cmd/server` | 0.0% | ❌ Needs tests |
+| `internal/api` | 31.6% | ⚠️ Needs more tests |
+| `internal/config` | 71.4% | ⚠️ Needs more tests |
+| `internal/mlx` | 65.1% | ⚠️ Needs more tests |
+| `internal/model` | 44.9% | ⚠️ Needs more tests |
+| **Overall** | **41.2%** | ❌ Below target |
+
+### Test Coverage Commands
+
+```bash
+# From src directory
+cd src
+
+# Run tests with coverage
+go test ./... -coverprofile=coverage.out -covermode=atomic
+
+# View overall coverage
+go tool cover -func=coverage.out | grep total
+
+# View coverage by package
+go test ./... -cover
+
+# Generate HTML coverage report
+go tool cover -html=coverage.out -o coverage.html
+open coverage.html  # macOS
+```
+
+### Test Coverage Rules
+
+1. **Every new feature MUST have 100% test coverage**
+2. **Use table-driven tests for multiple test cases**
+3. **Test both success and error paths**
+4. **Mock external dependencies (MLX, file system, network)**
+5. **Run coverage check before committing**
+
+### Test File Naming
+
+- Test files MUST be named `*_test.go`
+- Test files MUST be in the same package as the code they test
+- Integration tests go in `integration_test.go`
+
+### Pre-commit Checklist
+
+Before committing any Go code changes:
+- [ ] All tests pass: `go test ./...`
+- [ ] Coverage is 100% for modified packages
+- [ ] Code is formatted: `go fmt ./...`
+- [ ] No vet warnings: `go vet ./...`
+
+### Example: Table-Driven Test
+
+```go
+func TestCalculateGrid(t *testing.T) {
+    tests := []struct {
+        name      string
+        w, h      int
+        expectGW  int
+        expectGH  int
+    }{
+        {"112x224", 112, 224, 4, 8},
+        {"224x224", 224, 224, 8, 8},
+        {"56x56", 56, 56, 2, 2},
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            gw, gh := CalculateGrid(tt.w, tt.h)
+            if gw != tt.expectGW || gh != tt.expectGH {
+                t.Errorf("CalculateGrid(%d,%d) = (%d,%d), want (%d,%d)",
+                    tt.w, tt.h, gw, gh, tt.expectGW, tt.expectGH)
+            }
+        })
+    }
+}
+```

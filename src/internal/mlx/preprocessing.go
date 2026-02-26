@@ -58,6 +58,15 @@ func alignToGrid(img image.Image) (image.Image, error) {
 	gridW, gridH := CalculateGrid(w, h)
 	newW := gridW * MergePatchSize
 	newH := gridH * MergePatchSize
+
+	// Ensure minimum size after grid alignment
+	if newW < MergePatchSize {
+		newW = MergePatchSize
+	}
+	if newH < MergePatchSize {
+		newH = MergePatchSize
+	}
+
 	return resizeImage(img, newW, newH)
 }
 
