@@ -226,3 +226,290 @@ func TestLongestCommonPrefix(t *testing.T) {
 		})
 	}
 }
+
+func TestInsertPendingEmptyTree(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	node, err := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if node == nil {
+		t.Fatal("Expected node, got nil")
+	}
+
+	if !nodeIsChild(tree.Root, node) {
+		t.Error("Expected node to be child of root")
+	}
+}
+
+func TestInsertPendingNewBranch(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Insert first node
+	node1, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	FinalizeNode(node1, 100)
+
+	// Insert different branch
+	node2, err := tree.InsertPending([]uint32{4, 5}, engine, nil)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if node2 == nil {
+		t.Fatal("Expected node, got nil")
+	}
+
+	// Should be separate branch from root
+	if node1 == node2 {
+		t.Error("Expected different nodes")
+	}
+}
+
+func TestInsertPendingExistingExact(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Insert first node
+	node1, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+
+	// Request same tokens - should return existing node
+	node2, err := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if node1 != node2 {
+		t.Errorf("Expected same node, got different nodes")
+	}
+
+	// Node should be pinned (refCount > 0)
+	if node1.refCount.Load() != 2 {
+		t.Errorf("Expected refCount 2, got %d", node1.refCount.Load())
+	}
+}
+
+func TestInsertPendingThunderingHerd(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	var nodes []*Node
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	// Simulate 10 concurrent requests for same tokens
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			node, err := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+				return
+			}
+
+			mu.Lock()
+			nodes = append(nodes, node)
+			mu.Unlock()
+		}()
+	}
+	wg.Wait()
+
+	// All should get the same node
+	first := nodes[0]
+	for _, node := range nodes {
+		if node != first {
+			t.Error("Expected all requests to get same node")
+		}
+	}
+
+	// refCount should be 10 (all requests pinned it)
+	if first.refCount.Load() != 10 {
+		t.Errorf("Expected refCount 10, got %d", first.refCount.Load())
+	}
+}
+
+func TestInsertPendingPrefixMatch(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Insert [1,2,3]
+	node1, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	FinalizeNode(node1, 100)
+
+	// Insert [1,2,3,4] - should extend from node1
+	node2, err := tree.InsertPending([]uint32{1, 2, 3, 4}, engine, nil)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if node2 == nil {
+		t.Fatal("Expected node, got nil")
+	}
+
+	if node2.Parent != node1 {
+		t.Error("Expected node2 to be child of node1")
+	}
+}
+
+func TestInsertPendingAfterFinalize(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Insert and finalize [1,2,3]
+	node1, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	FinalizeNode(node1, 100)
+
+	// Request same tokens - should return finalized node
+	node2, err := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if node1 != node2 {
+		t.Error("Expected same node")
+	}
+
+	if !node1.IsReady() {
+		t.Error("Expected node to be ready")
+	}
+}
+
+func TestInsertPendingPoisonedRetry(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Insert node
+	node1, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+
+	// Poison it
+	PoisonNode(node1, TestError("computation failed"))
+
+	// Try to insert same tokens - should skip poisoned and create new
+	node2, err := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if node1 == node2 {
+		t.Error("Expected different node (should skip poisoned)")
+	}
+
+	if node2.err != nil {
+		t.Errorf("Expected new node to not be poisoned, got %v", node2.err)
+	}
+}
+
+func TestInsertPendingConcurrentDifferent(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	var wg sync.WaitGroup
+	errors := make(chan error, 2)
+
+	// Two concurrent requests for different tokens
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_, err := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+		errors <- err
+	}()
+
+	go func() {
+		defer wg.Done()
+		_, err := tree.InsertPending([]uint32{4, 5, 6}, engine, nil)
+		errors <- err
+	}()
+
+	wg.Wait()
+	close(errors)
+
+	for err := range errors {
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+	}
+}
+
+func TestInsertPendingOCPRetry(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// This test verifies OCC double-checked locking
+	// First thread acquires lock, finds no match, releases lock
+	// Second thread should either find first thread's node or race to create
+
+	var wg sync.WaitGroup
+	nodes := make(chan *Node, 5)
+
+	// 5 concurrent requests
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			node, err := tree.InsertPending([]uint32{1, 2, 3, 4, 5}, engine, nil)
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+				return
+			}
+			nodes <- node
+		}()
+	}
+
+	wg.Wait()
+	close(nodes)
+
+	// Collect unique nodes
+	unique := make(map[*Node]bool)
+	for node := range nodes {
+		unique[node] = true
+	}
+
+	// Should only have 1 unique node (OCC worked)
+	if len(unique) != 1 {
+		t.Errorf("Expected 1 unique node, got %d", len(unique))
+	}
+
+	// Get the single node
+	var singleNode *Node
+	for node := range unique {
+		singleNode = node
+	}
+
+	// refCount should be 5
+	if singleNode.refCount.Load() != 5 {
+		t.Errorf("Expected refCount 5, got %d", singleNode.refCount.Load())
+	}
+}
+
+func TestInsertPendingWithUnpin(t *testing.T) {
+	tree := NewTree()
+	engine := &MockMLXEngine{}
+
+	// Insert node
+	node, _ := tree.InsertPending([]uint32{1, 2, 3}, engine, nil)
+
+	if node.refCount.Load() != 1 {
+		t.Errorf("Expected refCount 1, got %d", node.refCount.Load())
+	}
+
+	// Unpin
+	tree.Unpin(node)
+
+	if node.refCount.Load() != 0 {
+		t.Errorf("Expected refCount 0 after unpin, got %d", node.refCount.Load())
+	}
+}
+
+// Helper function to check if node is child of parent
+func nodeIsChild(parent, child *Node) bool {
+	for _, c := range parent.Children {
+		if c == child {
+			return true
+		}
+	}
+	return false
+}
