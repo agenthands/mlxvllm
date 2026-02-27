@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	nethttp "net/http"
 	"os"
@@ -143,27 +144,40 @@ func setupLogging(level string) {
 }
 
 // setupMLXEngine initializes the MLX inference engine
+// Uses RealMLXEngine if model path is provided, otherwise falls back to mock
 func setupMLXEngine() (radix.MLXEngine, error) {
-	// In production, this would:
-	// 1. Load the MLX runtime library
-	// 2. Initialize Metal device
-	// 3. Load model weights into GPU memory
-	// 4. Return MLXEngine interface
+	// No model path provided - use mock for testing
+	if *modelPath == "" {
+		slog.Info("No model path provided, using mock MLX engine")
+		slog.Info("To use real model, download Qwen2-VL from: https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct")
+		return &radix.MockMLXEngine{
+			ForwardFunc: func(model any, tokens []uint32, base uint64) ([]float32, uint64, error) {
+				// Mock: return fake logits for testing
+				logits := make([]float32, *vocabSize)
+				return logits, base + 1, nil
+			},
+			SliceFunc: func(handle uint64, keepTokens int) (uint64, error) {
+				return handle + 100, nil
+			},
+			FreeFunc: func(handle uint64) {
+				// No-op for mock
+			},
+		}, nil
+	}
 
-	// For now, return a mock that will be replaced with CGO bindings
-	return &radix.MockMLXEngine{
-		ForwardFunc: func(model any, tokens []uint32, base uint64) ([]float32, uint64, error) {
-			// Placeholder: return fake logits
-			logits := make([]float32, 32000)
-			return logits, base + 1, nil
-		},
-		SliceFunc: func(handle uint64, keepTokens int) (uint64, error) {
-			return handle + 100, nil
-		},
-		FreeFunc: func(handle uint64) {
-			// Placeholder: no-op
-		},
-	}, nil
+	// Use real MLX engine with Metal acceleration
+	slog.Info("Initializing real MLX engine",
+		"path", *modelPath,
+		"vocab_size", *vocabSize,
+	)
+
+	engine := mlx.NewRealMLXEngine(*modelPath, *vocabSize)
+	if err := engine.LoadModel(); err != nil {
+		return nil, fmt.Errorf("failed to load MLX model: %w", err)
+	}
+
+	slog.Info("MLX engine loaded successfully", "type", "real")
+	return engine, nil
 }
 
 // loadModel loads the model weights

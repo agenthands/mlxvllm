@@ -28,18 +28,22 @@ const (
 )
 
 // ForwardWithCache executes MLX inference with KV cache
-// This is a Go wrapper around the C API
+// logits must be pre-allocated by caller with size vocab_size
+// This enables zero-copy: C++ writes directly to Go's memory
 func ForwardWithCache(
 	modelHandle uintptr,
 	tokens []uint32,
 	baseCacheHandle uint64,
-) ([]float32, uint64, error) {
+	logits []float32,
+) (uint64, error) {
 	if len(tokens) == 0 {
-		return nil, 0, nil
+		return 0, nil
 	}
 
-	// Allocate output buffers
-	outLogits := make([]float32, 32000) // TODO: get vocab size from model
+	if len(logits) == 0 {
+		return 0, errors.New("logits buffer must be pre-allocated")
+	}
+
 	var outCacheHandle C.uint64_t
 	var outErrorMsg *C.char
 
@@ -49,8 +53,8 @@ func ForwardWithCache(
 		(*C.uint32_t)(unsafe.Pointer(&tokens[0])),
 		C.int(len(tokens)),
 		C.uint64_t(baseCacheHandle),
-		(*C.float)(unsafe.Pointer(&outLogits[0])),
-		C.int(len(outLogits)),
+		(*C.float)(unsafe.Pointer(&logits[0])),
+		C.int(len(logits)),
 		&outCacheHandle,
 		&outErrorMsg,
 	)
@@ -60,12 +64,12 @@ func ForwardWithCache(
 		if outErrorMsg != nil {
 			errMsg := C.GoString(outErrorMsg)
 			C.MLXFreeError(outErrorMsg)
-			return nil, 0, errors.New(errMsg)
+			return 0, errors.New(errMsg)
 		}
-		return nil, 0, errors.New("MLX error: unknown failure")
+		return 0, errors.New("MLX error: unknown failure")
 	}
 
-	return outLogits, uint64(outCacheHandle), nil
+	return uint64(outCacheHandle), nil
 }
 
 // SliceCache creates a zero-copy view of an existing cache

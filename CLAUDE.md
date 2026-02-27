@@ -102,9 +102,39 @@ go test ./src/internal/config/...
 - ✅ HTTP server with OpenAI-compatible endpoints
 - ✅ Model registry with memory management
 - ✅ Image preprocessing (smart resize with grid alignment)
-- ⚠️ MLX runtime integration (placeholder - requires linking to MLX C API)
+- ✅ MLX runtime integration (RealMLXEngine with zero-copy CGO)
 - ⚠️ Tokenizer integration (SentencePiece wrapper needed)
 - ⚠️ Full inference pipeline (vision tower → LLM → pointer head)
+
+### Running with Real MLX Engine
+
+To run the server with actual model inference:
+
+```bash
+# From repository root
+cd src
+
+# Build with CGO enabled
+CGO_ENABLED=1 go build -o server cmd/server/main.go
+
+# Run with model path
+./server -model ../models/qwen2-vl/7b -vocab-size 152064
+
+# Or with go run
+go run cmd/server/main.go -model ../models/qwen2-vl/7b -vocab-size 152064
+```
+
+**Model Requirements:**
+- Model must have `bin_weights/` directory with converted weights
+- Use `scripts/convert_safetensors.py` to convert from safetensors
+- Qwen2-VL-2B: vocab_size 151936
+- Qwen2-VL-7B: vocab_size 152064
+
+**Mock Mode (for testing without model):**
+```bash
+# Run without -model flag to use mock MLX engine
+go run cmd/server/main.go -vocab-size 32000
+```
 
 ## Architecture
 
