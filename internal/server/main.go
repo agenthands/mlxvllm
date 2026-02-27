@@ -54,9 +54,39 @@ func main() {
 	}
 	slog.Info("Initialized MLX engine", "library", *mlxLibrary)
 
-	// Initialize tokenizer
+	// Initialize tokenizer - use Qwen2VLTokenizer if model path provided
 	tok := tokenizer.NewTokenizer(*vocabSize)
-	slog.Info("Initialized tokenizer", "vocab_size", *vocabSize)
+	if *modelPath != "" {
+		slog.Info("Initializing Qwen2-VL tokenizer", "model_path", *modelPath)
+		// The MLX engine loads the model from modelPath successfully
+		// For the tokenizer, we need to resolve from internal/server directory
+		// The modelPath is relative to repo root, so from internal/server we need ../../
+		modelPathForTokenizer := *modelPath
+
+		// Check if path exists as-is
+		if _, statErr := os.Stat(modelPathForTokenizer); statErr != nil {
+			// Doesn't exist - this is expected since we're in internal/server
+			// Construct path relative to internal/server directory
+			// If modelPath starts with ../, replace with ../../
+			if len(modelPathForTokenizer) >= 2 && modelPathForTokenizer[0:2] == ".." {
+				modelPathForTokenizer = "../" + modelPathForTokenizer
+			} else {
+				modelPathForTokenizer = "../../" + modelPathForTokenizer
+			}
+		}
+
+		qwenTok := tokenizer.NewQwen2VLTokenizer(modelPathForTokenizer, *vocabSize)
+		err := qwenTok.Load()
+		if err != nil {
+			slog.Warn("Failed to load Qwen2-VL tokenizer, using placeholder", "error", err, "tried_path", modelPathForTokenizer)
+		} else {
+			slog.Info("Qwen2-VL tokenizer loaded", "vocab_size", qwenTok.VocabSize())
+			// Set the Qwen2VL decoder as the custom decoder
+			tok.SetDecoder(qwenTok.Decode)
+		}
+	} else {
+		slog.Info("Initialized placeholder tokenizer", "vocab_size", *vocabSize)
+	}
 
 	// Load model (placeholder - would load actual weights)
 	model, err := loadModel(*modelPath, *vocabSize)

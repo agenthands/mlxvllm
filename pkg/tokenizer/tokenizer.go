@@ -11,6 +11,9 @@ import (
 // This is a placeholder implementation - production would use HuggingFace tokenizers
 type Tokenizer struct {
 	vocabSize int
+	// decoder is an optional custom decoder function
+	// If set, it will be used instead of the default Decode implementation
+	decoder func([]uint32) (string, error)
 	// Add actual tokenizer state here
 }
 
@@ -19,6 +22,11 @@ func NewTokenizer(vocabSize int) *Tokenizer {
 	return &Tokenizer{
 		vocabSize: vocabSize,
 	}
+}
+
+// SetDecoder sets a custom decoder function
+func (t *Tokenizer) SetDecoder(decoder func([]uint32) (string, error)) {
+	t.decoder = decoder
 }
 
 // EncodeText converts text to token IDs
@@ -67,6 +75,11 @@ func (t *Tokenizer) EncodeImage(imageBase64 string) ([]uint32, error) {
 
 // Decode converts token IDs back to text
 func (t *Tokenizer) Decode(tokens []uint32) (string, error) {
+	// Use custom decoder if set
+	if t.decoder != nil {
+		return t.decoder(tokens)
+	}
+
 	if len(tokens) == 0 {
 		return "", fmt.Errorf("empty tokens")
 	}
