@@ -14,6 +14,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build and Development Commands
 
 ### Python Environment Setup
+
+This project uses `uv` for fast Python package management. Alternative tools `uvx` and `pipx` are also supported.
+
+```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment
+uv venv
+
+# Activate environment (macOS/Linux)
+source .venv/bin/activate
+
+# Install dependencies
+uv pip install -e .
+
+# Alternative: Using uvx for single-command tools
+uvx --from huggingface-hub hf download Qwen/Qwen2-VL-7B-Instruct --local-dir ./models/qwen2-vl/7b
+
+# Alternative: Using pipx
+pipx install huggingface-hub
+hf download Qwen/Qwen2-VL-7B-Instruct --local-dir ./models/qwen2-vl/7b
+```
+
+**Legacy conda setup (not recommended):**
 ```bash
 conda create -n gui_actor python=3.10
 conda activate gui_actor

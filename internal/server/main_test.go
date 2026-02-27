@@ -59,12 +59,12 @@ func TestLoadModel(t *testing.T) {
 		wantErr bool
 	}{
 		{"Valid path", "/fake/path/model.safetensors", false},
-		{"Empty path", "", true},
+		{"Empty path (mock)", "", false}, // Empty path now returns mock model
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			model, err := loadModel(tt.path)
+			model, err := loadModel(tt.path, 152064)
 
 			if tt.wantErr {
 				if err == nil {
@@ -279,10 +279,13 @@ func TestMainFunction(t *testing.T) {
 		t.Error("Expected non-nil engine")
 	}
 
-	// Test loadModel with empty path
-	_, err = loadModel("")
-	if err == nil {
-		t.Error("Expected error for empty model path")
+	// Test loadModel with empty path (returns mock)
+	model, err := loadModel("", 152064)
+	if err != nil {
+		t.Errorf("Expected no error for empty path, got %v", err)
+	}
+	if model == nil {
+		t.Error("Expected mock model for empty path")
 	}
 }
 

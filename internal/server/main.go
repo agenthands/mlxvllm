@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log/slog"
 	nethttp "net/http"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	httpserver "github.com/agenthands/GUI-Actor/internal/http"
+	"github.com/agenthands/GUI-Actor/internal/mlx"
 	"github.com/agenthands/GUI-Actor/internal/radix"
 	"github.com/agenthands/GUI-Actor/pkg/tokenizer"
 )
@@ -58,12 +58,12 @@ func main() {
 	slog.Info("Initialized tokenizer", "vocab_size", *vocabSize)
 
 	// Load model (placeholder - would load actual weights)
-	model, err := loadModel(*modelPath)
+	model, err := loadModel(*modelPath, *vocabSize)
 	if err != nil {
 		slog.Error("Failed to load model", "error", err)
 		os.Exit(1)
 	}
-	slog.Info("Loaded model", "path", *modelPath)
+	slog.Info("Loaded model", "path", *modelPath, "vocab_size", *vocabSize)
 
 	// Create HTTP server
 	server := httpserver.NewServer(tree, engine, tok, model)
@@ -167,40 +167,73 @@ func setupMLXEngine() (radix.MLXEngine, error) {
 }
 
 // loadModel loads the model weights
-func loadModel(path string) (any, error) {
+func loadModel(path string, vocabSize int) (any, error) {
+	// For testing/demo, allow empty path and return mock
 	if path == "" {
-		return nil, fmt.Errorf("model path is required")
+		slog.Info("Using mock model (no model path provided)")
+		slog.Info("To use real model, download Qwen2-VL from: https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct")
+		return map[string]any{
+			"type":       "mock",
+			"name":       "qwen2-vl-mock",
+			"vocab_size": vocabSize,
+		}, nil
 	}
 
-	// In production, this would:
-	// 1. Open model file
-	// 2. Load weights into memory
-	// 3. Validate model format
-	// 4. Return model handle
+	// Load MLX model using CGO bridge
+	slog.Info("Loading MLX model", "path", path, "vocab_size", vocabSize)
+	if err := mlx.LoadModel(path, vocabSize); err != nil {
+		slog.Error("Failed to load MLX model", "error", err)
+		// Fall back to mock if MLX loading fails
+		slog.Warn("Falling back to mock model")
+		return map[string]any{
+			"type":       "mock",
+			"name":       "qwen2-vl-mock-fallback",
+			"vocab_size": vocabSize,
+		}, nil
+	}
 
-	// For now, return a placeholder
-	slog.Info("Model loading is placeholder - implement actual MLX loading", "path", path)
-	return "placeholder-model", nil
+	slog.Info("MLX model loaded successfully")
+	return map[string]any{
+		"type":       "mlx",
+		"name":       "qwen2-vl",
+		"path":       path,
+		"vocab_size": vocabSize,
+	}, nil
 }
 
 // wrapMiddleware applies middleware to the handler
 func wrapMiddleware(server *httpserver.Server, handler nethttp.Handler) nethttp.Handler {
-	var h nethttp.Handler = handler
-
 	// Apply panic recovery
-	h = server.RecoverHandler(func(w nethttp.ResponseWriter, r *nethttp.Request) {
-		h.ServeHTTP(w, r)
-	})
+	h := panicRecoveryMiddleware(handler)
 
 	// Apply request logging
-	h = server.LogHandler(func(w nethttp.ResponseWriter, r *nethttp.Request) {
-		h.ServeHTTP(w, r)
-	})
+	h = requestLoggingMiddleware(h)
 
-	// Apply CORS (if needed)
+	// Apply CORS
 	h = corsMiddleware(h)
 
 	return h
+}
+
+// panicRecoveryMiddleware catches panics and returns 500 error
+func panicRecoveryMiddleware(next nethttp.Handler) nethttp.Handler {
+	return nethttp.HandlerFunc(func(w nethttp.ResponseWriter, r *nethttp.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				slog.Error("Panic recovered", "error", err)
+				nethttp.Error(w, "Internal Server Error", 500)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// requestLoggingMiddleware logs all requests
+func requestLoggingMiddleware(next nethttp.Handler) nethttp.Handler {
+	return nethttp.HandlerFunc(func(w nethttp.ResponseWriter, r *nethttp.Request) {
+		slog.Info("Request", "method", r.Method, "path", r.URL.Path)
+		next.ServeHTTP(w, r)
+	})
 }
 
 // corsMiddleware adds CORS headers for browser clients

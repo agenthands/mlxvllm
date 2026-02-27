@@ -93,6 +93,19 @@ void MLXFreeCache(uint64_t cache_handle);
 //   error - Error message to free (NULL-safe)
 void MLXFreeError(char* error);
 
+// MLXLoadModel loads a model for inference
+//
+// Parameters:
+//   model_path - Path to the model directory or safetensors file
+//   vocab_size - Vocabulary size of the model
+//
+// Returns:
+//   0 on success, non-zero error code on failure
+//
+// Thread Safety:
+//   NOT thread-safe - call once during initialization
+int MLXLoadModel(const char* model_path, int vocab_size);
+
 // =============================================================================
 // Constants
 // =============================================================================

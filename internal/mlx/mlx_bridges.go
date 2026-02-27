@@ -4,10 +4,11 @@ package mlx
 
 /*
 #cgo CFLAGS: -I.
-#cgo LDFLAGS: -lmlx_runtime
+#cgo darwin LDFLAGS: -L. -lmlx_runtime -framework Metal -framework Foundation -framework CoreGraphics
+#cgo darwin LDFLAGS: -lstdc++ -Wl,-rpath,/Users/Janis_Vizulis/go/src/github.com/agenthands/mlxvllm/internal/mlx
 
-#include "mlx_api.h"
 #include <stdlib.h>
+#include "mlx_api.h"
 */
 import "C"
 import (
@@ -99,4 +100,18 @@ func FreeCache(cacheHandle uint64) {
 // FreeError frees an error message
 func FreeError(errMsg *C.char) {
 	C.MLXFreeError(errMsg)
+}
+
+// LoadModel loads an MLX model for inference
+func LoadModel(modelPath string, vocabSize int) error {
+	cPath := C.CString(modelPath)
+	defer C.free(unsafe.Pointer(cPath))
+
+	ret := C.MLXLoadModel(cPath, C.int(vocabSize))
+
+	if ret != C.MLX_SUCCESS {
+		return errors.New("MLX error: failed to load model")
+	}
+
+	return nil
 }
